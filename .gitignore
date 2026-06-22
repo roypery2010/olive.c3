@@ -1,6 +1,6 @@
 # Compiled binaries
-example
-example.exe
+app
+app.exe
 
 # Generated PPM images
 *.ppm

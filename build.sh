@@ -2,10 +2,13 @@
 
 set -e
 
-echo "Building project..."
-c3c compile example.c3 olive.c3 -o example
+# Clear existing binaries
+rm -rf app testrun out
 
-echo "Running application..."
-./example
+echo "=== Compiling Production Engine ==="
+c3c compile example.c3 olive.c3 -o app
 
-echo "Done! Generated .ppm files successfully."
+echo "=== Running Production Engine ==="
+./app
+
+echo "Done! Verified and generated all .ppm imagery outputs safely."

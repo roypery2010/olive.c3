@@ -1,48 +1,48 @@
 module olive;
 
-import std::io;
 import libc;
+import std::io;
 
-macro @return_defer(#value) {
-    return #value;
+fn void swap_int(int *a, int *b) {
+    int temp = *a;
+    *a = *b;
+    *b = temp;
 }
 
-fn void fill(uint *pixels, usz width, usz height, uint color){
-    for (usz i = 0; i < width * height; ++i){
+fn void fill(uint *pixels, usz img_w, usz img_h, uint color) {
+    for (usz i = 0; i < img_w * img_h; ++i) {
         pixels[i] = color;
     }
 }
 
-fn void fill_rect(uint *pixels, usz img_w, usz img_h, int rx, int ry, usz rw, usz rh, uint color) {
-    for (usz y = 0; y < rh; ++y) {
-        int current_y = ry + (int)y;
-        if (current_y < 0 || current_y >= (int)img_h) continue;
+fn void fill_rect(uint *pixels, usz img_w, usz img_h, int x, int y, usz w, usz h, uint color) {
+    for (usz r = 0; r < h; ++r) {
+        int cur_y = y + (int)r;
+        if (cur_y < 0 || cur_y >= (int)img_h) continue;
 
-        for (usz x = 0; x < rw; ++x) {
-            int current_x = rx + (int)x;
-            if (current_x < 0 || current_x >= (int)img_w) continue;
+        for (usz c = 0; c < w; ++c) {
+            int cur_x = x + (int)c;
+            if (cur_x < 0 || cur_x >= (int)img_w) continue;
 
-            usz index = (usz)current_y * img_w + (usz)current_x;
+            usz index = (usz)cur_y * img_w + (usz)cur_x;
             pixels[index] = color;
         }
     }
 }
 
 fn void fill_circle(uint *pixels, usz img_w, usz img_h, int cx, int cy, int r, uint color) {
-    int start_x = cx - r;
-    int start_y = cy - r;
-    int end_x = cx + r;
-    int end_y = cy + r;
+    int x0 = cx - r;
+    int y0 = cy - r;
+    int x1 = cx + r;
+    int y1 = cy + r;
 
-    for (int y = start_y; y <= end_y; ++y) {
+    for (int y = y0; y <= y1; ++y) {
         if (y < 0 || y >= (int)img_h) continue;
-        
-        for (int x = start_x; x <= end_x; ++x) {
+        for (int x = x0; x <= x1; ++x) {
             if (x < 0 || x >= (int)img_w) continue;
 
             int dx = x - cx;
             int dy = y - cy;
-
             if (dx * dx + dy * dy <= r * r) {
                 usz index = (usz)y * img_w + (usz)x;
                 pixels[index] = color;
@@ -52,71 +52,81 @@ fn void fill_circle(uint *pixels, usz img_w, usz img_h, int cx, int cy, int r, u
 }
 
 fn void draw_line(uint *pixels, usz img_w, usz img_h, int x0, int y0, int x1, int y1, uint color) {
-    int dx = (x1 > x0) ? (x1 - x0) : (x0 - x1);
-    int dy = (y1 > y0) ? (y1 - y0) : (y0 - y1);
-    
-    int sx = (x0 < x1) ? 1 : -1;
-    int sy = (y0 < y1) ? 1 : -1;
-    
-    int err = dx - dy;
+    int dx = libc::abs(x1 - x0);
+    int dy = -libc::abs(y1 - y0);
+    int sx = x0 < x1 ? 1 : -1;
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+
+    int cur_x = x0;
+    int cur_y = y0;
 
     while (true) {
-        if (x0 >= 0 && x0 < (int)img_w && y0 >= 0 && y0 < (int)img_h) {
-            usz index = (usz)y0 * img_w + (usz)x0;
+        if (cur_x >= 0 && cur_x < (int)img_w && cur_y >= 0 && cur_y < (int)img_h) {
+            usz index = (usz)cur_y * img_w + (usz)cur_x;
             pixels[index] = color;
         }
 
-        if (x0 == x1 && y0 == y1) break;
+        if (cur_x == x1 && cur_y == y1) break;
 
         int e2 = 2 * err;
-        if (e2 > -dy) {
-            err -= dy;
-            x0 += sx;
+        if (e2 >= dy) {
+            err += dy;
+            cur_x += sx;
         }
-        if (e2 < dx) {
+        if (e2 <= dx) {
             err += dx;
-            y0 += sy;
+            cur_y += sy;
         }
     }
 }
 
-fn libc::Errno save_to_ppm_file(uint *pixels, usz width, usz height, String file_path){
-    File? f = file::open(file_path, "wb");
-    if (catch err = f) {
-        io::printfn("Failed to open file. libc errno: %d", libc::errno());
-        @return_defer((libc::Errno)libc::errno());
-    }
-    
-    defer (void)f.close(); 
+fn void fill_triangle(uint *pixels, usz img_w, usz img_h, int x0, int y0, int x1, int y1, int x2, int y2, uint color) {
+    if (y0 > y1) { swap_int(&x0, &x1); swap_int(&y0, &y1); }
+    if (y0 > y2) { swap_int(&x0, &x2); swap_int(&y0, &y2); }
+    if (y1 > y2) { swap_int(&x1, &x2); swap_int(&y1, &y2); }
 
-    void*? actual_file = libc::fdopen(f.fd(), "wb");
-    if (catch err = actual_file) {
-        io::printfn("Failed to bind stream via fdopen. libc errno: %d", libc::errno());
-        @return_defer((libc::Errno)libc::errno());
+    if (y0 == y2) return;
+
+    for (int y = y0; y <= y2; ++y) {
+        if (y < 0 || y >= (int)img_h) continue;
+
+        bool is_top_half = y < y1;
+        float alpha = (float)(y - y0) / (float)(y2 - y0);
+        float beta  = is_top_half ? (float)(y - y0) / (float)(y1 - y0) : (float)(y - y1) / (float)(y2 - y1);
+
+        int ax = x0 + (int)((float)(x2 - x0) * alpha);
+        int bx = is_top_half ? x0 + (int)((float)(x1 - x0) * beta) : x1 + (int)((float)(x2 - x1) * beta);
+
+        if (ax > bx) swap_int(&ax, &bx);
+
+        if (ax < 0) ax = 0;
+        if (bx >= (int)img_w) bx = (int)img_w - 1;
+
+        for (int x = ax; x <= bx; ++x) {
+            usz index = (usz)y * img_w + (usz)x;
+            pixels[index] = color;
+        }
+    }
+}
+
+fn libc::Errno save_to_ppm_file(uint *pixels, usz img_w, usz img_h, String file_path) {
+    void *f = libc::fopen((ZString)file_path.ptr, "wb");
+    if (f == null) {
+        return libc::errno(); // Added parentheses to call the function
     }
 
-    (void)libc::fprintf(actual_file, "P6\n%zu %zu\n255\n", width, height);
-    
-    int err_check = libc::ferror(actual_file) ?? 0;
-    if (err_check != 0) {
-        io::printfn("Stream error detected via ferror. libc errno: %d", libc::errno());
-        @return_defer((libc::Errno)libc::errno());
-    }   
-    
-    usz total_pixels = width * height;
-    for (usz i = 0; i < total_pixels; ++i) {
+    libc::fprintf(f, "P6\n%Z %Z\n255\n", img_w, img_h);
+
+    for (usz i = 0; i < img_w * img_h; ++i) {
         uint pixel = pixels[i];
-        
         char[3] bytes;
-        bytes[0] = (char)((pixel >> (8 * 2)) & 0xFF); 
-        bytes[1] = (char)((pixel >> (8 * 1)) & 0xFF); 
-        bytes[2] = (char)((pixel >> (8 * 0)) & 0xFF); 
-        
-        (void)libc::fwrite(&bytes, 1, 3, actual_file);
+        bytes[0] = (char)((pixel >> (8 * 0)) & 0xFF); // R
+        bytes[1] = (char)((pixel >> (8 * 1)) & 0xFF); // G
+        bytes[2] = (char)((pixel >> (8 * 2)) & 0xFF); // B
+        libc::fwrite(&bytes, 1, 3, f);
     }
-    
-    (void)libc::fflush(actual_file);
-    
-    @return_defer((libc::Errno)0);
+
+    libc::fclose(f);
     return (libc::Errno)0;
 }
