@@ -1,0 +1,9 @@
+# Compiled binaries
+example
+example.exe
+
+# Generated PPM images
+*.ppm
+
+# Temporary or system files
+.DS_Store
