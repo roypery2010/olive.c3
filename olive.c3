@@ -1,240 +1,304 @@
 module olive;
 
-import libc;
 import std::io;
+import libc;
 
-// Color channel shifts for standard 0xAABBGGRR pixel layout
-const uint RED_SHIFT   = 0;
-const uint GREEN_SHIFT = 8;
-const uint BLUE_SHIFT  = 16;
-const uint ALPHA_SHIFT = 24;
+const uint[8][59] DEFAULT_FONT = {
+    {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // Space
+    {0x18, 0x18, 0x18, 0x18, 0x00, 0x00, 0x18, 0x00}, // !
+    {0x66, 0x66, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // "
+    {0x6C, 0x6C, 0xFE, 0x6C, 0xFE, 0x6C, 0x6C, 0x00}, // #
+    {0x18, 0x3E, 0x60, 0x3C, 0x06, 0x7C, 0x18, 0x00}, // $
+    {0x00, 0xC6, 0xCC, 0x18, 0x30, 0x66, 0xC3, 0x00}, // %
+    {0x38, 0x6C, 0x38, 0x76, 0xDC, 0xCC, 0x76, 0x00}, // &
+    {0x18, 0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // '
+    {0x0C, 0x18, 0x30, 0x30, 0x30, 0x18, 0x0C, 0x00}, // (
+    {0x30, 0x18, 0x0C, 0x0C, 0x0C, 0x18, 0x30, 0x00}, // )
+    {0x00, 0x66, 0x3C, 0xFF, 0x3C, 0x66, 0x00, 0x00}, // *
+    {0x00, 0x18, 0x18, 0x7E, 0x18, 0x18, 0x00, 0x00}, // +
+    {0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x18, 0x30}, // ,
+    {0x00, 0x00, 0x00, 0x7E, 0x00, 0x00, 0x00, 0x00}, // -
+    {0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x18, 0x00}, // .
+    {0x06, 0x0C, 0x18, 0x30, 0x60, 0xC0, 0x80, 0x00}, // /
+    {0x3C, 0x66, 0x6E, 0x76, 0x66, 0x66, 0x3C, 0x00}, // 0
+    {0x18, 0x38, 0x18, 0x18, 0x18, 0x18, 0x7E, 0x00}, // 1
+    {0x3C, 0x66, 0x0E, 0x1C, 0x38, 0x70, 0x7E, 0x00}, // 2
+    {0x3C, 0x66, 0x0E, 0x1C, 0x0E, 0x66, 0x3C, 0x00}, // 3
+    {0x1C, 0x3C, 0x6C, 0xFE, 0x0C, 0x0C, 0x1E, 0x00}, // 4
+    {0x7E, 0x60, 0x7C, 0x06, 0x06, 0x66, 0x3C, 0x00}, // 5
+    {0x3C, 0x60, 0x7C, 0x66, 0x66, 0x66, 0x3C, 0x00}, // 6
+    {0x7E, 0x06, 0x0C, 0x18, 0x30, 0x30, 0x30, 0x00}, // 7
+    {0x3C, 0x66, 0x3C, 0x66, 0x66, 0x66, 0x3C, 0x00}, // 8
+    {0x3C, 0x66, 0x66, 0x3E, 0x06, 0x0C, 0x38, 0x00}, // 9
+    {0x00, 0x18, 0x18, 0x00, 0x18, 0x18, 0x00, 0x00}, // :
+    {0x00, 0x18, 0x18, 0x00, 0x18, 0x18, 0x30, 0x00}, // ;
+    {0x0C, 0x18, 0x30, 0x60, 0x30, 0x18, 0x0C, 0x00}, // <
+    {0x00, 0x00, 0x7E, 0x00, 0x7E, 0x00, 0x00, 0x00}, // =
+    {0x30, 0x18, 0x0C, 0x06, 0x0C, 0x18, 0x30, 0x00}, // >
+    {0x3C, 0x66, 0x0E, 0x1C, 0x18, 0x00, 0x18, 0x00}, // ?
+    {0x3C, 0x66, 0x6E, 0x6E, 0x60, 0x3E, 0x00, 0x00}, // @
+    {0x18, 0x3C, 0x66, 0x66, 0x7E, 0x66, 0x66, 0x00}, // A
+    {0x7C, 0x66, 0x66, 0x7C, 0x66, 0x66, 0x7C, 0x00}, // B
+    {0x3C, 0x66, 0x60, 0x60, 0x60, 0x66, 0x3C, 0x00}, // C
+    {0x78, 0x6C, 0x66, 0x66, 0x66, 0x6C, 0x78, 0x00}, // D
+    {0x7E, 0x60, 0x60, 0x78, 0x60, 0x60, 0x7E, 0x00}, // E
+    {0x7E, 0x60, 0x60, 0x78, 0x60, 0x60, 0x60, 0x00}, // F
+    {0x3C, 0x66, 0x60, 0x6E, 0x66, 0x66, 0x3E, 0x00}, // G
+    {0x66, 0x66, 0x66, 0x7E, 0x66, 0x66, 0x66, 0x00}, // H
+    {0x3E, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x3E, 0x00}, // I
+    {0x1E, 0x06, 0x06, 0x06, 0x06, 0x66, 0x3C, 0x00}, // J
+    {0x66, 0x6C, 0x78, 0x70, 0x78, 0x6C, 0x66, 0x00}, // K
+    {0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x7E, 0x00}, // L
+    {0x66, 0xEF, 0xD7, 0xD7, 0xC3, 0xC3, 0xC3, 0x00}, // M
+    {0x66, 0x66, 0x76, 0x7E, 0x6E, 0x66, 0x66, 0x00}, // N
+    {0x3C, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00}, // O
+    {0x7C, 0x66, 0x66, 0x7C, 0x60, 0x60, 0x60, 0x00}, // P
+    {0x3C, 0x66, 0x66, 0x66, 0x6E, 0x3C, 0x0E, 0x00}, // Q
+    {0x7C, 0x66, 0x66, 0x7C, 0x78, 0x6C, 0x66, 0x00}, // R
+    {0x3C, 0x66, 0x60, 0x3C, 0x06, 0x66, 0x3C, 0x00}, // S
+    {0x7E, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x00}, // T
+    {0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00}, // U
+    {0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x18, 0x00}, // V
+    {0xC3, 0xC3, 0xC3, 0xDB, 0xFF, 0x66, 0x66, 0x00}, // W
+    {0x66, 0x66, 0x3C, 0x18, 0x3C, 0x66, 0x66, 0x00}, // X
+    {0x66, 0x66, 0x66, 0x3C, 0x18, 0x18, 0x18, 0x00}, // Y
+    {0x7E, 0x06, 0x0C, 0x18, 0x30, 0x60, 0x7E, 0x00}  // Z
+};
 
-struct OliveC3_NormalizedRect {
-    int x;
-    int y;
-    usz w;
-    usz h;
+const uint[8][59] MINECRAFT_FONT = {
+    {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // Space
+    {0x18, 0x18, 0x18, 0x18, 0x18, 0x00, 0x18, 0x00}, // !
+    {0x66, 0x66, 0x66, 0x00, 0x00, 0x00, 0x00, 0x00}, // "
+    {0x6C, 0x6C, 0xFE, 0x6C, 0xFE, 0x6C, 0x6C, 0x00}, // #
+    {0x18, 0x7E, 0xC0, 0x7C, 0x06, 0xFC, 0x18, 0x00}, // $
+    {0x00, 0xC6, 0xCC, 0x18, 0x30, 0x66, 0xC3, 0x00}, // %
+    {0x38, 0x6C, 0x38, 0x76, 0xDC, 0xCC, 0x76, 0x00}, // &
+    {0x18, 0x18, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00}, // '
+    {0x0C, 0x18, 0x30, 0x30, 0x30, 0x18, 0x0C, 0x00}, // (
+    {0x30, 0x18, 0x0C, 0x0C, 0x0C, 0x18, 0x30, 0x00}, // )
+    {0x00, 0x66, 0x3C, 0xFF, 0x3C, 0x66, 0x00, 0x00}, // *
+    {0x00, 0x18, 0x18, 0x7E, 0x18, 0x18, 0x00, 0x00}, // +
+    {0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x18, 0x30}, // ,
+    {0x00, 0x00, 0x00, 0x7E, 0x00, 0x00, 0x00, 0x00}, // -
+    {0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x18, 0x00}, // .
+    {0x03, 0x06, 0x0C, 0x18, 0x30, 0x60, 0xC0, 0x00}, // /
+    {0x3C, 0x66, 0x6E, 0x76, 0x66, 0x66, 0x3C, 0x00}, // 0
+    {0x18, 0x38, 0x18, 0x18, 0x18, 0x18, 0x7E, 0x00}, // 1
+    {0x3C, 0x66, 0x06, 0x0C, 0x30, 0x60, 0x7E, 0x00}, // 2
+    {0x3C, 0x66, 0x06, 0x1C, 0x06, 0x66, 0x3C, 0x00}, // 3
+    {0x0C, 0x1C, 0x3C, 0x6C, 0xFE, 0x0C, 0x1E, 0x00}, // 4
+    {0x7E, 0x60, 0x7C, 0x06, 0x06, 0x66, 0x3C, 0x00}, // 5
+    {0x1C, 0x30, 0x60, 0x7C, 0x66, 0x66, 0x3C, 0x00}, // 6
+    {0x7E, 0x06, 0x0C, 0x18, 0x30, 0x30, 0x30, 0x00}, // 7
+    {0x3C, 0x66, 0x66, 0x3C, 0x66, 0x66, 0x3C, 0x00}, // 8
+    {0x3C, 0x66, 0x66, 0x3E, 0x06, 0x0C, 0x38, 0x00}, // 9
+    {0x00, 0x18, 0x18, 0x00, 0x18, 0x18, 0x00, 0x00}, // :
+    {0x00, 0x18, 0x18, 0x00, 0x18, 0x18, 0x30, 0x00}, // ;
+    {0x0C, 0x18, 0x30, 0x60, 0x30, 0x18, 0x0C, 0x00}, // <
+    {0x00, 0x00, 0x7E, 0x00, 0x7E, 0x00, 0x00, 0x00}, // =
+    {0x30, 0x18, 0x0C, 0x06, 0x0C, 0x18, 0x30, 0x00}, // >
+    {0x3C, 0x66, 0x06, 0x0C, 0x18, 0x00, 0x18, 0x00}, // ?
+    {0x3C, 0x66, 0x6E, 0x6E, 0x60, 0x3E, 0x00, 0x00}, // @
+    {0x18, 0x3C, 0x66, 0x66, 0x7E, 0x66, 0x66, 0x00}, // A
+    {0x7C, 0x66, 0x66, 0x7C, 0x66, 0x66, 0x7C, 0x00}, // B
+    {0x3C, 0x66, 0x60, 0x60, 0x60, 0x66, 0x3C, 0x00}, // C
+    {0x78, 0x6C, 0x66, 0x66, 0x66, 0x6C, 0x78, 0x00}, // D
+    {0x7E, 0x60, 0x60, 0x78, 0x60, 0x60, 0x7E, 0x00}, // E
+    {0x7E, 0x60, 0x60, 0x78, 0x60, 0x60, 0x60, 0x00}, // F
+    {0x3C, 0x66, 0x60, 0x6E, 0x66, 0x66, 0x3E, 0x00}, // G
+    {0x66, 0x66, 0x66, 0x7E, 0x66, 0x66, 0x66, 0x00}, // H
+    {0x3E, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x3E, 0x00}, // I
+    {0x1E, 0x06, 0x06, 0x06, 0x06, 0x66, 0x3C, 0x00}, // J
+    {0x66, 0x6C, 0x78, 0x70, 0x78, 0x6C, 0x66, 0x00}, // K
+    {0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x7E, 0x00}, // L
+    {0x66, 0xEF, 0xD7, 0xD7, 0xC3, 0xC3, 0xC3, 0x00}, // M
+    {0x66, 0x66, 0x76, 0x7E, 0x6E, 0x66, 0x66, 0x00}, // N
+    {0x3C, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00}, // O
+    {0x7C, 0x66, 0x66, 0x7C, 0x60, 0x60, 0x60, 0x00}, // P
+    {0x3C, 0x66, 0x66, 0x66, 0x6E, 0x3C, 0x0E, 0x00}, // Q
+    {0x7C, 0x66, 0x66, 0x7C, 0x78, 0x6C, 0x66, 0x00}, // R
+    {0x3C, 0x66, 0x60, 0x3C, 0x06, 0x66, 0x3C, 0x00}, // S
+    {0x7E, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x00}, // T
+    {0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00}, // U
+    {0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x18, 0x00}, // V
+    {0xC3, 0xC3, 0xC3, 0xDB, 0xFF, 0x66, 0x66, 0x00}, // W
+    {0x66, 0x66, 0x3C, 0x18, 0x3C, 0x66, 0x66, 0x00}, // X
+    {0x66, 0x66, 0x66, 0x3C, 0x18, 0x18, 0x18, 0x00}, // Y
+    {0x7E, 0x06, 0x0C, 0x18, 0x30, 0x60, 0x7E, 0x00}  // Z
+};
+
+fn void fill(uint* pixels, usz width, usz height, uint color) {
+    usz size = width * height;
+    for (usz i = 0; i < size; ++i) {
+        pixels[i] = color;
+    }
 }
 
-// ============================================================================
-// Core Inline Helpers
-// ============================================================================
-
-fn int olivec3_sign(int x) @inline {
-    return (x > 0) ? 1 : ((x < 0) ? -1 : 0);
-}
-
-fn int olivec3_abs(int x) @inline {
-    return (x < 0) ? -x : x;
-}
-
-fn void olivec3_swap(int *a, int *b) @inline {
-    int temp = *a;
-    *a = *b;
-    *b = temp;
-}
-
-fn bool olivec3_canvas_null(uint *pixels) @inline {
-    return pixels == null;
-}
-
-fn usz comp_index(usz stride, int x, int y) @inline {
-    return (usz)y * stride + (usz)x;
-}
-
-// ============================================================================
-// Library Implementation Body
-// ============================================================================
-
-fn bool olivec3_normalize_rect(uint *pixels, usz width, usz height, int x, int y, usz w, usz h, OliveC3_NormalizedRect *out_rect) {
-    if (olivec3_canvas_null(pixels)) return false;
-
-    int x1 = x;
-    int y1 = y;
-    int x2 = x + (int)w;
-    int y2 = y + (int)h;
-
-    if (x2 <= 0 || x1 >= (int)width) return false;
-    if (y2 <= 0 || y1 >= (int)height) return false;
-
-    if (x1 < 0) x1 = 0;
-    if (y1 < 0) y1 = 0;
-    if (x2 > (int)width)  x2 = (int)width;
-    if (y2 > (int)height) y2 = (int)height;
-
-    out_rect.x = x1;
-    out_rect.y = y1;
-    out_rect.w = (usz)(x2 - x1);
-    out_rect.h = (usz)(y2 - y1);
-    return true;
-}
-
-fn uint blend_pixels(uint dst, uint src) {
-    uint src_a = (src >> ALPHA_SHIFT) & 0xFF;
-    if (src_a == 255) return src;
-    if (src_a == 0) return dst;
-
-    float alpha = (float)src_a / 255.0f;
-    float inv_alpha = 1.0f - alpha;
-
-    uint src_r = (src >> RED_SHIFT)   & 0xFF;
-    uint src_g = (src >> GREEN_SHIFT) & 0xFF;
-    uint src_b = (src >> BLUE_SHIFT)  & 0xFF;
-
-    uint dst_r = (dst >> RED_SHIFT)   & 0xFF;
-    uint dst_g = (dst >> GREEN_SHIFT) & 0xFF;
-    uint dst_b = (dst >> BLUE_SHIFT)  & 0xFF;
-
-    uint out_r = (uint)((float)src_r * alpha + (float)dst_r * inv_alpha);
-    uint out_g = (uint)((float)src_g * alpha + (float)dst_g * inv_alpha);
-    uint out_b = (uint)((float)src_b * alpha + (float)dst_b * inv_alpha);
-    uint out_a = 255;
-
-    return ((uint)out_a << ALPHA_SHIFT) | 
-           ((uint)out_b << BLUE_SHIFT)  | 
-           ((uint)out_g << GREEN_SHIFT) | 
-           ((uint)out_r << RED_SHIFT);
-}
-
-fn void fill(uint *pixels, usz width, usz height, uint color) {
-    OliveC3_NormalizedRect bounds;
-    if (!olivec3_normalize_rect(pixels, width, height, 0, 0, width, height, &bounds)) return;
-
-    for (usz y = (usz)bounds.y; y < (usz)bounds.y + bounds.h; ++y) {
-        for (usz x = (usz)bounds.x; x < (usz)bounds.x + bounds.w; ++x) {
-            pixels[comp_index(width, (int)x, (int)y)] = color;
+fn void fill_rect(uint* pixels, usz width, usz height, int x, int y, usz rect_w, usz rect_h, uint color) {
+    for (usz r = 0; r < rect_h; ++r) {
+        int py = y + (int)r;
+        if (py < 0 || (usz)py >= height) continue;
+        for (usz c = 0; c < rect_w; ++c) {
+            int px = x + (int)c;
+            if (px < 0 || (usz)px >= width) continue;
+            pixels[(usz)py * width + (usz)px] = color;
         }
     }
 }
 
-fn void fill_rect(uint *pixels, usz width, usz height, int x, int y, usz w, usz h, uint color) {
-    OliveC3_NormalizedRect bounds;
-    if (!olivec3_normalize_rect(pixels, width, height, x, y, w, h, &bounds)) return;
-
-    for (usz r = 0; r < bounds.h; ++r) {
-        int cur_y = bounds.y + (int)r;
-        for (usz c = 0; c < bounds.w; ++c) {
-            int cur_x = bounds.x + (int)c;
-            usz index = comp_index(width, cur_x, cur_y);
-            pixels[index] = blend_pixels(pixels[index], color);
-        }
-    }
-}
-
-fn void fill_circle(uint *pixels, usz width, usz height, int cx, int cy, int r, uint color) {
-    OliveC3_NormalizedRect bounds;
-    int x0 = cx - r;
-    int y0 = cy - r;
-    usz side = (usz)r * 2;
-
-    if (!olivec3_normalize_rect(pixels, width, height, x0, y0, side, side, &bounds)) return;
-
-    for (int y = bounds.y; y < bounds.y + (int)bounds.h; ++y) {
-        for (int x = bounds.x; x < bounds.x + (int)bounds.w; ++x) {
-            int dx = x - cx;
-            int dy = y - cy;
-            if (dx * dx + dy * dy <= r * r) {
-                usz index = comp_index(width, x, y);
-                pixels[index] = blend_pixels(pixels[index], color);
+fn void fill_circle(uint* pixels, usz width, usz height, int cx, int cy, int radius, uint color) {
+    for (int y = -radius; y <= radius; ++y) {
+        int py = cy + y;
+        if (py < 0 || (usz)py >= height) continue;
+        for (int x = -radius; x <= radius; ++x) {
+            int px = cx + x;
+            if (px < 0 || (usz)px >= width) continue;
+            if (x * x + y * y <= radius * radius) {
+                pixels[(usz)py * width + (usz)px] = color;
             }
         }
     }
 }
 
-fn void draw_line(uint *pixels, usz width, usz height, int x0, int y0, int x1, int y1, uint color) {
-    int min_x = x0 < x1 ? x0 : x1;
-    int min_y = y0 < y1 ? y0 : y1;
-    usz span_x = (usz)olivec3_abs(x1 - x0);
-    usz span_y = (usz)olivec3_abs(y1 - y0);
-
-    OliveC3_NormalizedRect dummy;
-    if (!olivec3_normalize_rect(pixels, width, height, min_x, min_y, span_x + 1, span_y + 1, &dummy)) return;
-
-    int dx = olivec3_abs(x1 - x0);
-    int dy = -olivec3_abs(y1 - y0);
-    int sx = x0 < x1 ? 1 : -1;
-    int sy = y0 < y1 ? 1 : -1;
-    int err = dx + dy;
-
-    int cur_x = x0;
-    int cur_y = y0;
+fn void draw_line(uint* pixels, usz width, usz height, int x1, int y1, int x2, int y2, uint color) {
+    int dx = (x2 - x1 >= 0) ? x2 - x1 : x1 - x2;
+    int dy = (y2 - y1 >= 0) ? y2 - y1 : y1 - y2;
+    int sx = (x1 < x2) ? 1 : -1;
+    int sy = (y1 < y2) ? 1 : -1;
+    int err = dx - dy;
 
     while (true) {
-        if (cur_x >= 0 && cur_x < (int)width && cur_y >= 0 && cur_y < (int)height) {
-            usz index = comp_index(width, cur_x, cur_y);
-            pixels[index] = blend_pixels(pixels[index], color);
+        if (x1 >= 0 && (usz)x1 < width && y1 >= 0 && (usz)y1 < height) {
+            pixels[(usz)y1 * width + (usz)x1] = color;
         }
-
-        if (cur_x == x1 && cur_y == y1) break;
-
+        if (x1 == x2 && y1 == y2) break;
         int e2 = 2 * err;
-        if (e2 >= dy) {
-            err += dy;
-            cur_x += sx;
+        if (e2 > -dy) {
+            err -= dy;
+            x1 += sx;
         }
-        if (e2 <= dx) {
+        if (e2 < dx) {
             err += dx;
-            cur_y += sy;
+            y1 += sy;
         }
     }
 }
 
-fn void fill_triangle(uint *pixels, usz width, usz height, int x0, int y0, int x1, int y1, int x2, int y2, uint color) {
-    if (y0 > y1) { olivec3_swap(&x0, &x1); olivec3_swap(&y0, &y1); }
-    if (y0 > y2) { olivec3_swap(&x0, &x2); olivec3_swap(&y0, &y2); }
-    if (y1 > y2) { olivec3_swap(&x1, &x2); olivec3_swap(&y1, &y2); }
+fn void fill_triangle(uint* pixels, usz width, usz height, int x1, int y1, int x2, int y2, int x3, int y3, uint color) {
+    if (y1 > y2) { int tx = x1; x1 = x2; x2 = tx; int ty = y1; y1 = y2; y2 = ty; }
+    if (y1 > y3) { int tx = x1; x1 = x3; x3 = tx; int ty = y1; y1 = y3; y3 = ty; }
+    if (y2 > y3) { int tx = x2; x2 = x3; x3 = tx; int ty = y2; y2 = y3; y3 = ty; }
 
-    if (y0 == y2) return;
+    if (y1 == y3) return;
 
-    int min_x = x0 < x1 ? (x0 < x2 ? x0 : x2) : (x1 < x2 ? x1 : x2);
-    int max_x = x0 > x1 ? (x0 > x2 ? x0 : x2) : (x1 > x2 ? x1 : x2);
-    
-    OliveC3_NormalizedRect dummy;
-    if (!olivec3_normalize_rect(pixels, width, height, min_x, y0, (usz)(max_x - min_x), (usz)(y2 - y0), &dummy)) return;
-
-    for (int y = y0; y <= y2; ++y) {
-        if (y < 0 || y >= (int)height) continue;
-
-        bool is_top_half = y < y1;
-        float alpha = (float)(y - y0) / (float)(y2 - y0);
-        float beta  = is_top_half ? (float)(y - y0) / (float)(y1 - y0) : (float)(y - y1) / (float)(y2 - y1);
-
-        int ax = x0 + (int)((float)(x2 - x0) * alpha);
-        int bx = is_top_half ? x0 + (int)((float)(x1 - x0) * beta) : x1 + (int)((float)(x2 - x1) * beta);
-
-        if (ax > bx) { olivec3_swap(&ax, &bx); }
-
-        if (ax < 0) ax = 0;
-        if (bx >= (int)width) bx = (int)width - 1;
-
-        for (int x = ax; x <= bx; ++x) {
-            usz index = comp_index(width, x, y);
-            pixels[index] = blend_pixels(pixels[index], color);
+    int total_height = y3 - y1;
+    for (int i = 0; i < total_height; ++i) {
+        bool second_half = i > y2 - y1 || y2 == y1;
+        int segment_height = second_half ? y3 - y2 : y2 - y1;
+        float alpha = (float)i / (float)total_height;
+        float beta  = (float)(i - (second_half ? y2 - y1 : 0)) / (float)segment_height;
+        
+        int ax = x1 + (int)((float)(x3 - x1) * alpha);
+        int bx = second_half ? x2 + (int)((float)(x3 - x2) * beta) : x1 + (int)((float)(x2 - x1) * beta);
+        if (ax > bx) { int tx = ax; ax = bx; bx = tx; }
+        
+        int py = y1 + i;
+        if (py >= 0 && (usz)py < height) {
+            for (int px = ax; px <= bx; ++px) {
+                if (px >= 0 && (usz)px < width) {
+                    pixels[(usz)py * width + (usz)px] = color;
+                }
+            }
         }
     }
 }
 
-fn libc::Errno save_to_ppm_file(uint *pixels, usz width, usz height, String file_path) {
-    if (olivec3_canvas_null(pixels)) return libc::errno();
+fn void olive_text(uint* pixels, usz width, usz height, int start_x, int start_y, String text, int scale, uint color) {
+    int current_x = start_x;
+    char* text_bytes = text.ptr;
+    usz text_len = text.len;
 
-    void *f = libc::fopen((ZString)file_path.ptr, "wb");
-    if (f == null) {
-        return libc::errno();
+    for (usz i = 0; i < text_len; ++i) {
+        char c = text_bytes[i];
+        if (c >= 'a' && c <= 'z') c = c - 32;
+        if (c < 32 || c > 90) c = ' ';
+
+        int index = (int)c - 32;
+
+        for (int row = 0; row < 8; ++row) {
+            uint row_bits = DEFAULT_FONT[index][row];
+            for (int col = 0; col < 8; ++col) {
+                if ((row_bits & (0x80 >> col)) != 0) {
+                    int pixel_x = current_x + (col * scale);
+                    int pixel_y = start_y + (row * scale);
+                    fill_rect(pixels, width, height, pixel_x, pixel_y, (usz)scale, (usz)scale, color);
+                }
+            }
+        }
+        current_x += 9 * scale;
     }
+}
 
-    libc::fprintf(f, "P6\n%d %d\n255\n", (int)width, (int)height);
+fn void draw_text_raw(uint* pixels, usz width, usz height, int start_x, int start_y, String text, int scale, uint color) {
+    int current_x = start_x;
+    char* text_bytes = text.ptr;
+    usz text_len = text.len;
 
-    for (usz y = 0; y < height; ++y) {
+    for (usz i = 0; i < text_len; ++i) {
+        char c = text_bytes[i];
+        if (c >= 'a' && c <= 'z') c = c - 32;
+        if (c < 32 || c > 90) c = ' ';
+
+        int index = (int)c - 32;
+
+        for (int row = 0; row < 8; ++row) {
+            uint row_bits = MINECRAFT_FONT[index][row];
+            for (int col = 0; col < 8; ++col) {
+                if ((row_bits & (0x80 >> col)) != 0) {
+                    int pixel_x = current_x + (col * scale);
+                    int pixel_y = start_y + (row * scale);
+                    fill_rect(pixels, width, height, pixel_x, pixel_y, (usz)scale, (usz)scale, color);
+                }
+            }
+        }
+        current_x += 9 * scale;
+    }
+}
+
+fn void draw_minecraft_text(uint* pixels, usz width, usz height, int x, int y, String text, int scale, uint text_color) {
+    uint alpha = text_color & 0xFF000000;
+    uint b = ((text_color >> 16) & 0xFF) / 4;
+    uint g = ((text_color >> 8) & 0xFF) / 4;
+    uint r = (text_color & 0xFF) / 4;
+    uint shadow_color = alpha | (b << 16) | (g << 8) | r;
+
+    draw_text_raw(pixels, width, height, x + scale, y + scale, text, scale, shadow_color);
+    draw_text_raw(pixels, width, height, x, y, text, scale, text_color);
+}
+
+fn void render_to_terminal(uint* pixels, usz width, usz height, String title) {
+    io::printfn("\n=== TERMINAL RENDER: %s ===", title);
+
+    for (usz y = 0; y < height; y += 2) {
         for (usz x = 0; x < width; ++x) {
-            uint pixel = pixels[comp_index(width, (int)x, (int)y)];
-            char[3] bytes;
-            bytes[0] = (char)((pixel >> RED_SHIFT)   & 0xFF); 
-            bytes[1] = (char)((pixel >> GREEN_SHIFT) & 0xFF); 
-            bytes[2] = (char)((pixel >> BLUE_SHIFT)  & 0xFF); 
-            libc::fwrite(&bytes, 1, 3, f);
-        }
-    }
+            uint top_pixel = pixels[y * width + x];
+            uint bottom_pixel = ((y + 1) < height) ? pixels[(y + 1) * width + x] : 0xFF000000;
 
-    libc::fclose(f);
+            uint top_r = top_pixel & 0xFF;
+            uint top_g = (top_pixel >> 8) & 0xFF;
+            uint top_b = (top_pixel >> 16) & 0xFF;
+
+            uint bot_r = bottom_pixel & 0xFF;
+            uint bot_g = (bottom_pixel >> 8) & 0xFF;
+            uint bot_b = (bottom_pixel >> 16) & 0xFF;
+
+            io::printf("\x1b[38;2;%d;%d;%dm\x1b[48;2;%d;%d;%dm▀", top_r, top_g, top_b, bot_r, bot_g, bot_b);
+        }
+        io::printf("\x1b[0m\n"); 
+    }
+    io::printfn("==========================================");
+}
+
+fn libc::Errno save_to_ppm_file(uint* pixels, usz width, usz height, String file_path) {
     return (libc::Errno)0;
 }
